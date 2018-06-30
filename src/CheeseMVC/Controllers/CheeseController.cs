@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using CheeseMVC.ViewModels;
 using CheeseMVC.Data;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
 
 namespace CheeseMVC.Controllers
 {
@@ -19,14 +20,16 @@ namespace CheeseMVC.Controllers
         // GET: /<controller>/
         public IActionResult Index()
         {
-            List<Cheese> cheeses = context.Cheeses.ToList();
+            IList<Cheese> cheeses = context.Cheeses.Include(c => c.Category).ToList();
+
+            ViewBag.Title = "Cheeses";
 
             return View(cheeses);
         }
 
         public IActionResult Add()
         {
-            AddCheeseViewModel addCheeseViewModel = new AddCheeseViewModel();
+            AddCheeseViewModel addCheeseViewModel = new AddCheeseViewModel(context.Categories.ToList());
             return View(addCheeseViewModel);
         }
 
@@ -35,12 +38,14 @@ namespace CheeseMVC.Controllers
         {
             if (ModelState.IsValid)
             {
+                CheeseCategory newCheeseCategory =
+                    context.Categories.Single(c => c.ID == addCheeseViewModel.CategoryID);
                 // Add the new cheese to my existing cheeses
                 Cheese newCheese = new Cheese
                 {
                     Name = addCheeseViewModel.Name,
                     Description = addCheeseViewModel.Description,
-                    Type = addCheeseViewModel.Type
+                    Category = newCheeseCategory
                 };
 
                 context.Cheeses.Add(newCheese);
@@ -48,8 +53,24 @@ namespace CheeseMVC.Controllers
 
                 return Redirect("/Cheese");
             }
-
             return View(addCheeseViewModel);
+        }
+
+        public IActionResult Category(int id)
+        {
+            if (id == 0)
+            {
+                return Redirect("/Category");
+            }
+
+            CheeseCategory theCategory = context
+                .Categories
+                .Include(cat => cat.Cheeses)
+                .Single(cat => cat.ID == id);
+
+            ViewBag.Title = string.Format("Cheeses in category: {0}", theCategory.Name);
+
+            return View("Index", theCategory.Cheeses);
         }
 
         public IActionResult Remove()
